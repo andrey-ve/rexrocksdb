@@ -55,10 +55,16 @@ pub extern "C" fn full_merge_callback(
     unsafe {
         let cb: &mut MergeOperatorCallback = &mut *(raw_cb as *mut MergeOperatorCallback);
         let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
-        let key: &[u8] = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-        let oldval: &[u8] =
-            slice::from_raw_parts(existing_value as *const u8, existing_value_len as usize);
-        let mut result = (cb.merge_fn)(key, Some(oldval), operands);
+        let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
+        let oldval = slice::from_raw_parts(
+            if existing_value_len == 0 && existing_value == (ptr::null_mut() as *const c_char) {
+                0x1 as *const u8
+            } else {
+                existing_value as *const u8
+            }, existing_value_len as usize);
+        let old = Some(oldval);
+        assert!(old.is_some());
+        let mut result = (cb.merge_fn)(key, old, operands);
         result.shrink_to_fit();
         // TODO(tan) investigate zero-copy techniques to improve performance
         let buf = libc::malloc(result.len() as size_t);
@@ -81,18 +87,26 @@ pub extern "C" fn partial_merge_callback(
     new_value_length: *mut size_t,
 ) -> *const c_char {
     unsafe {
-        let cb: &mut MergeOperatorCallback = &mut *(raw_cb as *mut MergeOperatorCallback);
+        let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
         let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
-        let key: &[u8] = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
+        let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
         let mut result = (cb.merge_fn)(key, None, operands);
-        result.shrink_to_fit();
-        // TODO(tan) investigate zero-copy techniques to improve performance
-        let buf = libc::malloc(result.len() as size_t);
-        assert!(!buf.is_null());
-        *new_value_length = 1 as size_t;
-        *success = 1 as u8;
-        ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
-        buf as *const c_char
+
+        let buf: *mut c_void;
+        if result.len() == 0 {
+            *success = 0 as u8;
+            *new_value_length = 0 as size_t;
+            buf = ptr::null_mut();
+        } else {
+            result.shrink_to_fit();
+            // TODO(tan) investigate zero-copy techniques to improve performance
+            buf = libc::malloc(result.len() as size_t);
+            assert!(!buf.is_null());
+            *new_value_length = result.len() as size_t;
+            *success = 1 as u8;
+            ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
+        }
+        buf as * const c_char
     }
 }
 
