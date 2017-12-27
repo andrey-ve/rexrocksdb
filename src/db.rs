@@ -36,6 +36,9 @@ pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
+unsafe impl<'a> Send for Snapshot<'a> {}
+unsafe impl<'a> Sync for Snapshot<'a> {}
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DBCompressionType {
     None = ffi::rocksdb_no_compression as isize,
