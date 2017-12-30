@@ -39,6 +39,9 @@ unsafe impl Sync for DB {}
 unsafe impl<'a> Send for Snapshot<'a> {}
 unsafe impl<'a> Sync for Snapshot<'a> {}
 
+unsafe impl Send for ReadOptions {}
+unsafe impl Sync for ReadOptions {}
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DBCompressionType {
     None = ffi::rocksdb_no_compression as isize,
@@ -1190,7 +1193,7 @@ impl ReadOptions {
         }
     }
 
-    fn set_snapshot(&mut self, snapshot: &Snapshot) {
+    pub fn set_snapshot(&mut self, snapshot: &Snapshot) {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
         }
