@@ -87,7 +87,7 @@ fn test_val_rw_ver() {
 
     {
         let snap = db.snapshot();
-        let val_str = _read_key(snap.get(b"k1"), b"k1",
+        let val_str = _read_key(snap.get(&db,b"k1"), b"k1",
                                 "From snapshot: First val for ");
         assert_eq!(val_str, "v1");
 
@@ -95,7 +95,7 @@ fn test_val_rw_ver() {
         let val_str = _read_key(db.get(b"k1"), b"k1", "Second val for ");
         assert_eq!(val_str, "v2");
 
-        let val_str = _read_key(snap.get(b"k1"), b"k1",
+        let val_str = _read_key(snap.get(&db,b"k1"), b"k1",
                                 "From snapshot: Second val for ");
         assert_eq!(val_str, "v1");
     }

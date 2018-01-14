@@ -36,8 +36,8 @@ pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
-unsafe impl<'a> Send for Snapshot<'a> {}
-unsafe impl<'a> Sync for Snapshot<'a> {}
+unsafe impl Send for Snapshot {}
+unsafe impl Sync for Snapshot {}
 
 unsafe impl Send for ReadOptions {}
 unsafe impl Sync for ReadOptions {}
@@ -101,8 +101,8 @@ pub struct ReadOptions {
 /// let mut iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
 /// ```
 ///
-pub struct Snapshot<'a> {
-    db: &'a DB,
+pub struct Snapshot {
+    //db: &'a DB,
     inner: *const ffi::rocksdb_snapshot_t,
 }
 
@@ -520,63 +520,63 @@ impl Into<DBRawIterator> for DBIterator {
     }
 }
 
-impl<'a> Snapshot<'a> {
+impl Snapshot {
     pub fn new(db: &DB) -> Snapshot {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner) };
         Snapshot {
-            db: db,
             inner: snapshot,
         }
     }
 
-    pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
+    pub fn iterator(&self, db: &DB, mode: IteratorMode) -> DBIterator {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        DBIterator::new(self.db, &readopts, mode)
+        DBIterator::new(db, &readopts, mode)
     }
 
     pub fn iterator_cf(
         &self,
+        db: &DB,
         cf_handle: ColumnFamily,
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
+        DBIterator::new_cf(db, cf_handle, &readopts, mode)
     }
 
-    pub fn raw_iterator(&self) -> DBRawIterator {
+    pub fn raw_iterator(&self, db: &DB) -> DBRawIterator {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        DBRawIterator::new(self.db, &readopts)
+        DBRawIterator::new(db, &readopts)
     }
 
-    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
+    pub fn raw_iterator_cf(&self, db: &DB, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        DBRawIterator::new_cf(self.db, cf_handle, &readopts)
+        DBRawIterator::new_cf(db, cf_handle, &readopts)
     }
 
-    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
+    pub fn get(&self, db: &DB, key: &[u8]) -> Result<Option<DBVector>, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        self.db.get_opt(key, &readopts)
+        db.get_opt(key, &readopts)
     }
 
-    pub fn get_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBVector>, Error> {
+    pub fn get_cf(&self, db: &DB, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBVector>, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        self.db.get_cf_opt(cf, key, &readopts)
+        db.get_cf_opt(cf, key, &readopts)
     }
 }
 
-impl<'a> Drop for Snapshot<'a> {
-    fn drop(&mut self) {
-        unsafe {
-            ffi::rocksdb_release_snapshot(self.db.inner, self.inner);
-        }
-    }
-}
+//impl Drop for Snapshot {
+//    fn drop(&mut self) {
+//        unsafe {
+//            ffi::rocksdb_release_snapshot(self.db.inner, self.inner);
+//        }
+//    }
+//}
 
 impl DB {
     /// Open a database with default options.
@@ -1384,14 +1384,14 @@ fn snapshot_test() {
         assert!(p.is_ok());
 
         let snap = db.snapshot();
-        let r: Result<Option<DBVector>, Error> = snap.get(b"k1");
+        let r: Result<Option<DBVector>, Error> = snap.get(&db,b"k1");
         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
         let p = db.put(b"k2", b"v2222");
         assert!(p.is_ok());
 
         assert!(db.get(b"k2").unwrap().is_some());
-        assert!(snap.get(b"k2").unwrap().is_none());
+        assert!(snap.get(&db,b"k2").unwrap().is_none());
     }
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
