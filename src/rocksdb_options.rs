@@ -224,6 +224,9 @@ pub struct UnsafeSnap {
     inner: *const DBSnapshot,
 }
 
+unsafe impl Send for UnsafeSnap {}
+unsafe impl Sync for UnsafeSnap {}
+
 impl UnsafeSnap {
     pub unsafe fn new(db: *mut DBInstance) -> UnsafeSnap {
         UnsafeSnap {
