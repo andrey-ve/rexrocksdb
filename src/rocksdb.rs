@@ -1250,12 +1250,17 @@ impl DB {
         Ok(backup_engine)
     }
 
-    pub fn restore_from(
+    pub fn restore_from<'a, T>(
         backup_engine: &BackupEngine,
         restore_db_path: &str,
         restore_wal_path: &str,
         ropts: &RestoreOptions,
-    ) -> Result<DB, String> {
+        db_opts: DBOptions,
+        cfds: Vec<T>,
+    ) -> Result<DB, String>
+        where
+            T: Into<ColumnFamilyDescriptor<'a>>,
+    {
         let c_db_path = match CString::new(restore_db_path.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
@@ -1285,7 +1290,7 @@ impl DB {
             ))
         };
 
-        DB::open_default(restore_db_path)
+        DB::open_cf(db_opts, restore_db_path, cfds)
     }
 
     pub fn get_block_cache_usage(&self) -> u64 {
@@ -2227,7 +2232,10 @@ mod test {
 
         // Make a backup.
         let backup_dir = TempDir::new("_rust_rocksdb_backuptest_backup").unwrap();
-        let backup_engine = db.backup_at(backup_dir.path().to_str().unwrap()).unwrap();
+        let backup_path = backup_dir.path().to_str().unwrap();
+        assert!(db.backup_at(backup_path).is_ok());
+
+        let backup_engine = BackupEngine::open(DBOptions::default(), backup_path).unwrap();
 
         // Restore it.
         let ropt1 = RestoreOptions::new();
@@ -2236,11 +2244,14 @@ mod test {
         let ropts = [ropt1, ropt2];
         for ropt in &ropts {
             let restore_dir = TempDir::new("_rust_rocksdb_backuptest_restore").unwrap();
+            let cfds: Vec<&str> = vec![];
             let restored_db = DB::restore_from(
                 &backup_engine,
                 restore_dir.path().to_str().unwrap(),
                 restore_dir.path().to_str().unwrap(),
                 &ropt,
+                DBOptions::default(),
+                cfds,
             ).unwrap();
 
             let r = restored_db.get(key);
