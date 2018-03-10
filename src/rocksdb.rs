@@ -1629,6 +1629,9 @@ pub struct DBVector {
     pinned_slice: *mut DBPinnableSlice,
 }
 
+unsafe impl Send for DBVector {}
+unsafe impl Sync for DBVector {}
+
 impl Debug for DBVector {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         write!(formatter, "{:?}", &**self)
