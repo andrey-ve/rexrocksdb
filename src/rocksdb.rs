@@ -15,7 +15,7 @@
 use crocksdb_ffi::{self, DBBackupEngine, DBCFHandle, DBCompressionType, DBEnv, DBInstance,
                    DBPinnableSlice, DBSequentialFile, DBStatisticsHistogramType,
                    DBStatisticsTickerType, DBWriteBatch};
-use libc::{self, c_int, c_void, size_t};
+use libc::{self, c_int, c_void, iovec, size_t};
 use rocksdb_options::{ColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions, DBOptions,
                       EnvOptions, FlushOptions, HistogramData, IngestExternalFileOptions,
                       ReadOptions, RestoreOptions, UnsafeSnap, WriteOptions};
@@ -2022,6 +2022,79 @@ pub fn set_external_sst_file_global_seq_no(
     }
 }
 
+pub struct UnsafeIter {
+    inner: *mut crocksdb_ffi::DBIterator,
+}
+
+impl UnsafeIter {
+    unsafe fn iter_get<F>(&mut self, mut f: F) -> iovec
+    where
+        F: FnMut(*const crocksdb_ffi::DBIterator, *mut size_t) -> *mut u8,
+    {
+        let mut iov_len: size_t = 0;
+        let iov_base = f(self.inner, &mut iov_len as *mut size_t) as *mut c_void;
+        iovec { iov_base, iov_len }
+    }
+
+    unsafe fn iter_key(&mut self) -> iovec {
+        self.iter_get(|iter, len| crocksdb_ffi::crocksdb_iter_key(iter, len))
+    }
+
+    unsafe fn iter_value(&mut self) -> iovec {
+        self.iter_get(|iter, len| crocksdb_ffi::crocksdb_iter_value(iter, len))
+    }
+
+    pub fn seek_to_first(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_iter_seek_to_first(self.inner);
+        }
+    }
+
+    pub fn seek_to_last(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_iter_seek_to_last(self.inner);
+        }
+    }
+
+    pub fn seek(&mut self, key: iovec) {
+        unsafe {
+            crocksdb_ffi::crocksdb_iter_seek(self.inner, key.iov_base as *const u8, key.iov_len);
+        }
+    }
+
+    pub fn new(db: &DB, readopts: &ReadOptions) -> Self {
+        Self {
+            inner: unsafe {
+                crocksdb_ffi::crocksdb_create_iterator(db.inner, readopts.get_inner())
+            },
+        }
+    }
+}
+
+impl Iterator for UnsafeIter {
+    type Item = (iovec, iovec);
+
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        unsafe {
+            if crocksdb_ffi::crocksdb_iter_valid(self.inner) {
+                let kv = (self.iter_key(), self.iter_value());
+                crocksdb_ffi::crocksdb_iter_next(self.inner);
+                Some(kv)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+impl Drop for UnsafeIter {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_iter_destroy(self.inner);
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -2488,5 +2561,58 @@ mod test {
         let (count, size) = db.get_approximate_memtable_stats_cf(cf, &range);
         assert!(count > 0);
         assert!(size > 0);
+    }
+
+    #[test]
+    fn unsafe_iterator_test() {
+        let path = TempDir::new("_rust_rocksdb_unsafe_iteratortest").expect("");
+
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+        db.put(b"k22", b"v20002").expect("");
+        db.put(b"k21", b"v20001").expect("");
+        db.put(b"k23", b"v20003").expect("");
+        db.put(b"k31", b"v30001").expect("");
+        db.put(b"k11", b"v1111").expect("");
+        db.put(b"k12", b"v1112").expect("");
+
+        let mut read_opt = ReadOptions::default();
+        read_opt.set_pin_data(true);
+        read_opt.set_iterate_lower_bound(b"k2");
+        read_opt.set_iterate_upper_bound(b"k3");
+
+        let mut iter = UnsafeIter::new(&db, &read_opt);
+
+        iter.seek_to_first();
+        //        let mut pref = b"k21".to_vec();
+        //        iter.seek(iovec {
+        //            iov_base: pref.as_mut_ptr() as *mut c_void,
+        //            iov_len: 1isize as size_t
+        //        });
+
+        //        for (k, v) in &mut iter {
+        //            let key = unsafe { slice::from_raw_parts(k.iov_base as *const u8, k.iov_len as usize) };
+        //            let val = unsafe { slice::from_raw_parts(v.iov_base as *const u8, v.iov_len as usize) };
+        //            println!(
+        //                "Hello {}: {}",
+        //                str::from_utf8(key).unwrap(),
+        //                str::from_utf8(val).unwrap()
+        //            );
+        //        }
+
+        let filtered = iter.into_iter()
+            .map(|(k, v)| {
+                let key =
+                    unsafe { slice::from_raw_parts(k.iov_base as *const u8, k.iov_len as usize) };
+                let val =
+                    unsafe { slice::from_raw_parts(v.iov_base as *const u8, v.iov_len as usize) };
+                (key.to_vec(), val.to_vec())
+            })
+            .collect::<Vec<_>>();
+        let expected = vec![
+            (b"k21".to_vec(), b"v20001".to_vec()),
+            (b"k22".to_vec(), b"v20002".to_vec()),
+            (b"k23".to_vec(), b"v20003".to_vec()),
+        ];
+        assert_eq!(filtered, expected);
     }
 }
