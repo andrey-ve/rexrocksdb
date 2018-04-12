@@ -103,9 +103,9 @@ pub struct Snapshot<D: Deref<Target = DB>> {
 }
 
 pub struct DBIterator<D: Deref<Target = DB>> {
+    inner: UnsafeIter,
     _db: D,
     _readopts: ReadOptions,
-    inner: *mut crocksdb_ffi::DBIterator,
 }
 
 pub enum SeekKey<'a> {
@@ -122,76 +122,65 @@ impl<'a> From<&'a [u8]> for SeekKey<'a> {
 
 impl<D: Deref<Target = DB>> DBIterator<D> {
     pub fn new(db: D, readopts: ReadOptions) -> DBIterator<D> {
-        unsafe {
-            let iterator = crocksdb_ffi::crocksdb_create_iterator(db.inner, readopts.get_inner());
-
-            DBIterator {
-                _db: db,
-                _readopts: readopts,
-                inner: iterator,
-            }
+        let inner = UnsafeIter::new(&db, &readopts);
+        DBIterator {
+            _db: db,
+            _readopts: readopts,
+            inner,
         }
     }
 
     pub fn seek(&mut self, key: SeekKey) -> bool {
-        unsafe {
-            match key {
-                SeekKey::Start => crocksdb_ffi::crocksdb_iter_seek_to_first(self.inner),
-                SeekKey::End => crocksdb_ffi::crocksdb_iter_seek_to_last(self.inner),
-                SeekKey::Key(key) => {
-                    crocksdb_ffi::crocksdb_iter_seek(self.inner, key.as_ptr(), key.len() as size_t)
-                }
-            }
+        match key {
+            SeekKey::Start => self.inner.seek_to_first(),
+            SeekKey::End => self.inner.seek_to_last(),
+            SeekKey::Key(key) => self.inner.seek(iovec {
+                iov_base: key.as_ptr() as *mut c_void,
+                iov_len: key.len() as size_t,
+            }),
         }
         self.valid()
     }
 
     pub fn seek_for_prev(&mut self, key: SeekKey) -> bool {
-        unsafe {
-            match key {
-                SeekKey::Start => crocksdb_ffi::crocksdb_iter_seek_to_first(self.inner),
-                SeekKey::End => crocksdb_ffi::crocksdb_iter_seek_to_last(self.inner),
-                SeekKey::Key(key) => crocksdb_ffi::crocksdb_iter_seek_for_prev(
-                    self.inner,
-                    key.as_ptr(),
-                    key.len() as size_t,
-                ),
-            }
+        match key {
+            SeekKey::Start => self.inner.seek_to_first(),
+            SeekKey::End => self.inner.seek_to_last(),
+            SeekKey::Key(key) => self.inner.seek_for_prev(iovec {
+                iov_base: key.as_ptr() as *mut c_void,
+                iov_len: key.len() as size_t,
+            }),
         }
         self.valid()
     }
 
     pub fn prev(&mut self) -> bool {
         unsafe {
-            crocksdb_ffi::crocksdb_iter_prev(self.inner);
+            crocksdb_ffi::crocksdb_iter_prev(self.inner.as_mut_ptr());
         }
         self.valid()
     }
 
     pub fn next(&mut self) -> bool {
         unsafe {
-            crocksdb_ffi::crocksdb_iter_next(self.inner);
+            crocksdb_ffi::crocksdb_iter_next(self.inner.as_mut_ptr());
         }
         self.valid()
     }
 
     pub fn key(&self) -> &[u8] {
         assert!(self.valid());
-        let mut key_len: size_t = 0;
-        let key_len_ptr: *mut size_t = &mut key_len;
         unsafe {
-            let key_ptr = crocksdb_ffi::crocksdb_iter_key(self.inner, key_len_ptr);
-            slice::from_raw_parts(key_ptr, key_len as usize)
+            let iov = self.inner.iter_key();
+            slice::from_raw_parts(iov.iov_base as *const u8, iov.iov_len as usize)
         }
     }
 
     pub fn value(&self) -> &[u8] {
         assert!(self.valid());
-        let mut val_len: size_t = 0;
-        let val_len_ptr: *mut size_t = &mut val_len;
         unsafe {
-            let val_ptr = crocksdb_ffi::crocksdb_iter_value(self.inner, val_len_ptr);
-            slice::from_raw_parts(val_ptr, val_len as usize)
+            let iov = self.inner.iter_value();
+            slice::from_raw_parts(iov.iov_base as *const u8, iov.iov_len as usize)
         }
     }
 
@@ -204,21 +193,15 @@ impl<D: Deref<Target = DB>> DBIterator<D> {
     }
 
     pub fn valid(&self) -> bool {
-        unsafe { crocksdb_ffi::crocksdb_iter_valid(self.inner) }
+        unsafe { self.inner.valid() }
     }
 
     pub fn new_cf(db: D, cf_handle: &CFHandle, readopts: ReadOptions) -> DBIterator<D> {
-        unsafe {
-            let iterator = crocksdb_ffi::crocksdb_create_iterator_cf(
-                db.inner,
-                readopts.get_inner(),
-                cf_handle.inner,
-            );
-            DBIterator {
-                _db: db,
-                _readopts: readopts,
-                inner: iterator,
-            }
+        let inner = UnsafeIter::new_cf(&db, cf_handle, &readopts);
+        DBIterator {
+            _db: db,
+            _readopts: readopts,
+            inner,
         }
     }
 }
@@ -234,14 +217,6 @@ impl<'b, D: Deref<Target = DB>> Iterator for &'b mut DBIterator<D> {
             DBIterator::next(self);
         }
         kv
-    }
-}
-
-impl<D: Deref<Target = DB>> Drop for DBIterator<D> {
-    fn drop(&mut self) {
-        unsafe {
-            crocksdb_ffi::crocksdb_iter_destroy(self.inner);
-        }
     }
 }
 
@@ -2027,7 +2002,7 @@ pub struct UnsafeIter {
 }
 
 impl UnsafeIter {
-    unsafe fn iter_get<F>(&mut self, mut f: F) -> iovec
+    unsafe fn iter_get<F>(&self, mut f: F) -> iovec
     where
         F: FnMut(*const crocksdb_ffi::DBIterator, *mut size_t) -> *mut u8,
     {
@@ -2036,11 +2011,11 @@ impl UnsafeIter {
         iovec { iov_base, iov_len }
     }
 
-    unsafe fn iter_key(&mut self) -> iovec {
+    pub unsafe fn iter_key(&self) -> iovec {
         self.iter_get(|iter, len| crocksdb_ffi::crocksdb_iter_key(iter, len))
     }
 
-    unsafe fn iter_value(&mut self) -> iovec {
+    pub unsafe fn iter_value(&self) -> iovec {
         self.iter_get(|iter, len| crocksdb_ffi::crocksdb_iter_value(iter, len))
     }
 
@@ -2062,12 +2037,46 @@ impl UnsafeIter {
         }
     }
 
+    pub fn seek_for_prev(&mut self, key: iovec) {
+        unsafe {
+            crocksdb_ffi::crocksdb_iter_seek_for_prev(
+                self.inner,
+                key.iov_base as *const u8,
+                key.iov_len,
+            );
+        }
+    }
+
     pub fn new(db: &DB, readopts: &ReadOptions) -> Self {
         Self {
             inner: unsafe {
                 crocksdb_ffi::crocksdb_create_iterator(db.inner, readopts.get_inner())
             },
         }
+    }
+
+    pub fn new_cf(db: &DB, cf_handle: &CFHandle, readopts: &ReadOptions) -> Self {
+        Self {
+            inner: unsafe {
+                crocksdb_ffi::crocksdb_create_iterator_cf(
+                    db.inner,
+                    readopts.get_inner(),
+                    cf_handle.inner,
+                )
+            },
+        }
+    }
+
+    pub unsafe fn valid(&self) -> bool {
+        crocksdb_ffi::crocksdb_iter_valid(self.inner)
+    }
+
+    pub fn as_ptr(&self) -> *const crocksdb_ffi::DBIterator {
+        self.inner as *const crocksdb_ffi::DBIterator
+    }
+
+    pub(crate) fn as_mut_ptr(&self) -> *mut crocksdb_ffi::DBIterator {
+        self.inner
     }
 }
 
