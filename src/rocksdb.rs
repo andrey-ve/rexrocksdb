@@ -2104,6 +2104,8 @@ impl Drop for UnsafeIter {
     }
 }
 
+unsafe impl Send for UnsafeIter {}
+
 #[cfg(test)]
 mod test {
     use super::*;
