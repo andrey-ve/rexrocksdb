@@ -105,7 +105,6 @@ pub struct Snapshot<D: Deref<Target = DB>> {
 pub struct DBIterator<D: Deref<Target = DB>> {
     inner: UnsafeIter,
     _db: D,
-    _readopts: ReadOptions,
 }
 
 pub enum SeekKey<'a> {
@@ -122,10 +121,9 @@ impl<'a> From<&'a [u8]> for SeekKey<'a> {
 
 impl<D: Deref<Target = DB>> DBIterator<D> {
     pub fn new(db: D, readopts: ReadOptions) -> DBIterator<D> {
-        let inner = UnsafeIter::new(&db, &readopts);
+        let inner = UnsafeIter::new(&db, readopts);
         DBIterator {
             _db: db,
-            _readopts: readopts,
             inner,
         }
     }
@@ -197,10 +195,9 @@ impl<D: Deref<Target = DB>> DBIterator<D> {
     }
 
     pub fn new_cf(db: D, cf_handle: &CFHandle, readopts: ReadOptions) -> DBIterator<D> {
-        let inner = UnsafeIter::new_cf(&db, cf_handle, &readopts);
+        let inner = UnsafeIter::new_cf(&db, cf_handle, readopts);
         DBIterator {
             _db: db,
-            _readopts: readopts,
             inner,
         }
     }
@@ -1999,6 +1996,7 @@ pub fn set_external_sst_file_global_seq_no(
 
 pub struct UnsafeIter {
     inner: *mut crocksdb_ffi::DBIterator,
+    _readopts: ReadOptions,
 }
 
 impl UnsafeIter {
@@ -2047,23 +2045,27 @@ impl UnsafeIter {
         }
     }
 
-    pub fn new(db: &DB, readopts: &ReadOptions) -> Self {
+    pub fn new(db: &DB, readopts: ReadOptions) -> Self {
+        let inner = unsafe {
+            let opts_inner = readopts.get_inner();
+            crocksdb_ffi::crocksdb_create_iterator(db.inner, opts_inner)
+        };
+
         Self {
-            inner: unsafe {
-                crocksdb_ffi::crocksdb_create_iterator(db.inner, readopts.get_inner())
-            },
+            inner,
+            _readopts: readopts,
         }
     }
 
-    pub fn new_cf(db: &DB, cf_handle: &CFHandle, readopts: &ReadOptions) -> Self {
+    pub fn new_cf(db: &DB, cf_handle: &CFHandle, readopts: ReadOptions) -> Self {
+        let inner = unsafe {
+            let opts_inner = readopts.get_inner();
+            crocksdb_ffi::crocksdb_create_iterator_cf(db.inner, opts_inner, cf_handle.inner)
+        };
+
         Self {
-            inner: unsafe {
-                crocksdb_ffi::crocksdb_create_iterator_cf(
-                    db.inner,
-                    readopts.get_inner(),
-                    cf_handle.inner,
-                )
-            },
+            inner,
+            _readopts: readopts,
         }
     }
 
