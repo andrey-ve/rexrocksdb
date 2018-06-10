@@ -137,7 +137,6 @@ impl<D: Deref<Target = DB>> DBIterator<D> {
                 iov_len: key.len() as size_t,
             }),
         }
-        self.valid()
     }
 
     pub fn seek_for_prev(&mut self, key: SeekKey) -> bool {
@@ -149,7 +148,6 @@ impl<D: Deref<Target = DB>> DBIterator<D> {
                 iov_len: key.len() as size_t,
             }),
         }
-        self.valid()
     }
 
     pub fn prev(&mut self) -> bool {
@@ -2017,31 +2015,35 @@ impl UnsafeIter {
         self.iter_get(|iter, len| crocksdb_ffi::crocksdb_iter_value(iter, len))
     }
 
-    pub fn seek_to_first(&mut self) {
+    pub fn seek_to_first(&mut self) -> bool {
         unsafe {
             crocksdb_ffi::crocksdb_iter_seek_to_first(self.inner);
+            self.valid()
         }
     }
 
-    pub fn seek_to_last(&mut self) {
+    pub fn seek_to_last(&mut self) -> bool {
         unsafe {
             crocksdb_ffi::crocksdb_iter_seek_to_last(self.inner);
+            self.valid()
         }
     }
 
-    pub fn seek(&mut self, key: iovec) {
+    pub fn seek(&mut self, key: iovec) -> bool {
         unsafe {
             crocksdb_ffi::crocksdb_iter_seek(self.inner, key.iov_base as *const u8, key.iov_len);
+            self.valid()
         }
     }
 
-    pub fn seek_for_prev(&mut self, key: iovec) {
+    pub fn seek_for_prev(&mut self, key: iovec) -> bool {
         unsafe {
             crocksdb_ffi::crocksdb_iter_seek_for_prev(
                 self.inner,
                 key.iov_base as *const u8,
                 key.iov_len,
             );
+            self.valid()
         }
     }
 
