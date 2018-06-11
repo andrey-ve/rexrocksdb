@@ -1994,6 +1994,7 @@ pub fn set_external_sst_file_global_seq_no(
 
 pub struct UnsafeIter {
     inner: *mut crocksdb_ffi::DBIterator,
+    item_ready: bool,
     _readopts: ReadOptions,
 }
 
@@ -2015,24 +2016,29 @@ impl UnsafeIter {
         self.iter_get(|iter, len| crocksdb_ffi::crocksdb_iter_value(iter, len))
     }
 
+    unsafe fn check_item_ready(&mut self) -> bool {
+        self.item_ready = self.valid();
+        self.item_ready
+    }
+
     pub fn seek_to_first(&mut self) -> bool {
         unsafe {
             crocksdb_ffi::crocksdb_iter_seek_to_first(self.inner);
-            self.valid()
+            self.check_item_ready()
         }
     }
 
     pub fn seek_to_last(&mut self) -> bool {
         unsafe {
             crocksdb_ffi::crocksdb_iter_seek_to_last(self.inner);
-            self.valid()
+            self.check_item_ready()
         }
     }
 
     pub fn seek(&mut self, key: iovec) -> bool {
         unsafe {
             crocksdb_ffi::crocksdb_iter_seek(self.inner, key.iov_base as *const u8, key.iov_len);
-            self.valid()
+            self.check_item_ready()
         }
     }
 
@@ -2043,7 +2049,7 @@ impl UnsafeIter {
                 key.iov_base as *const u8,
                 key.iov_len,
             );
-            self.valid()
+            self.check_item_ready()
         }
     }
 
@@ -2055,6 +2061,7 @@ impl UnsafeIter {
 
         Self {
             inner,
+            item_ready: false,
             _readopts: readopts,
         }
     }
@@ -2067,6 +2074,7 @@ impl UnsafeIter {
 
         Self {
             inner,
+            item_ready: false,
             _readopts: readopts,
         }
     }
@@ -2089,10 +2097,13 @@ impl Iterator for UnsafeIter {
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         unsafe {
-            if crocksdb_ffi::crocksdb_iter_valid(self.inner) {
-                let kv = (self.iter_key(), self.iter_value());
+            if !self.item_ready && self.valid() {
                 crocksdb_ffi::crocksdb_iter_next(self.inner);
-                Some(kv)
+            }
+
+            if self.valid() {
+                self.item_ready = false;
+                Some((self.iter_key(), self.iter_value()))
             } else {
                 None
             }
