@@ -2589,6 +2589,24 @@ mod test {
         assert!(size > 0);
     }
 
+    fn unsafe_iter_to_vec(iter: &mut UnsafeIter) -> Vec<(Vec<u8>, Vec<u8>)> {
+        iter
+            .into_iter()
+            .map(|(k, v)| {
+                let key =
+                    unsafe { slice::from_raw_parts(k.iov_base as *const u8, k.iov_len as usize) };
+                let val =
+                    unsafe { slice::from_raw_parts(v.iov_base as *const u8, v.iov_len as usize) };
+//                println!(
+//                    "K: V = {}: {}",
+//                    str::from_utf8(key).unwrap(),
+//                    str::from_utf8(val).unwrap()
+//                );
+                (key.to_vec(), val.to_vec())
+            })
+            .collect::<Vec<_>>()
+    }
+
     #[test]
     fn unsafe_iterator_test() {
         let path = TempDir::new("_rust_rocksdb_unsafe_iteratortest").expect("");
@@ -2602,43 +2620,33 @@ mod test {
         db.put(b"k12", b"v1112").expect("");
 
         let mut read_opt = ReadOptions::default();
-        read_opt.set_pin_data(true);
-        read_opt.set_iterate_lower_bound(b"k2");
+        //read_opt.set_pin_data(true);
+        //read_opt.set_iterate_lower_bound(b"k2");
         read_opt.set_iterate_upper_bound(b"k3");
 
-        let mut iter = UnsafeIter::new(&db, &read_opt);
+        let mut iter = UnsafeIter::new(&db, read_opt);
+        let mut pref = b"k21".to_vec();
+        iter.seek(iovec {
+            iov_base: pref.as_mut_ptr() as *mut c_void,
+            iov_len: pref.len() as size_t,
+        });
 
-        iter.seek_to_first();
-        //        let mut pref = b"k21".to_vec();
-        //        iter.seek(iovec {
-        //            iov_base: pref.as_mut_ptr() as *mut c_void,
-        //            iov_len: 1isize as size_t
-        //        });
-
-        //        for (k, v) in &mut iter {
-        //            let key = unsafe { slice::from_raw_parts(k.iov_base as *const u8, k.iov_len as usize) };
-        //            let val = unsafe { slice::from_raw_parts(v.iov_base as *const u8, v.iov_len as usize) };
-        //            println!(
-        //                "Hello {}: {}",
-        //                str::from_utf8(key).unwrap(),
-        //                str::from_utf8(val).unwrap()
-        //            );
-        //        }
-
-        let filtered = iter.into_iter()
-            .map(|(k, v)| {
-                let key =
-                    unsafe { slice::from_raw_parts(k.iov_base as *const u8, k.iov_len as usize) };
-                let val =
-                    unsafe { slice::from_raw_parts(v.iov_base as *const u8, v.iov_len as usize) };
-                (key.to_vec(), val.to_vec())
-            })
-            .collect::<Vec<_>>();
         let expected = vec![
             (b"k21".to_vec(), b"v20001".to_vec()),
             (b"k22".to_vec(), b"v20002".to_vec()),
             (b"k23".to_vec(), b"v20003".to_vec()),
         ];
-        assert_eq!(filtered, expected);
+        assert_eq!(unsafe_iter_to_vec(&mut iter), expected);
+    }
+
+    #[test]
+    fn unsafe_iterator_unitialized_test() {
+        let path = TempDir::new("_rust_rocksdb_unsafe_noinit_iteratortest").expect("");
+
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+        db.put(b"k22", b"v20002").expect("");
+
+        let mut iter = UnsafeIter::new(&db, ReadOptions::default());
+        assert_eq!(unsafe_iter_to_vec(&mut iter), vec![]);
     }
 }
