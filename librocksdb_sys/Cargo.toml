@@ -8,6 +8,7 @@ links = "rocksdb"
 [dependencies]
 libc = "0.2.11"
 tempdir = "0.3"
+libz-sys = { version = "1.0", features = ["static"] }
 
 [features]
 default = []
@@ -19,10 +20,6 @@ sse = []
 [build-dependencies]
 cc = "1.0.3"
 cmake = "0.1"
-
-[dependencies.libz-sys]
-git = "https://github.com/busyjay/libz-sys.git"
-branch = "static-link"
 
 [dependencies.bzip2-sys]
 git = "https://github.com/alexcrichton/bzip2-rs.git"
