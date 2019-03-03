@@ -1007,6 +1007,9 @@ crocksdb_options_set_compaction_priority(crocksdb_options_t *, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_delayed_write_rate(
     crocksdb_options_t*, uint64_t);
 
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_dump_malloc_stats(
+    crocksdb_options_t*, unsigned char);
+
 /* RateLimiter */
 extern C_ROCKSDB_LIBRARY_API crocksdb_ratelimiter_t* crocksdb_ratelimiter_create(
     int64_t rate_bytes_per_sec, int64_t refill_period_us, int32_t fairness);

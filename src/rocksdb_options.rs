@@ -641,6 +641,12 @@ impl DBOptions {
         }
     }
 
+    pub fn set_dump_malloc_stats(&self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_dump_malloc_stats(self.inner, v);
+        }
+    }
+
     pub fn enable_statistics(&mut self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_enable_statistics(self.inner, v);

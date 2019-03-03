@@ -3329,6 +3329,11 @@ void crocksdb_options_set_min_level_to_compress(crocksdb_options_t* opt, int lev
   }
 }
 
+void crocksdb_options_set_dump_malloc_stats(crocksdb_options_t* opt,
+                                                         unsigned char v) {
+  opt->rep.dump_malloc_stats = v;
+}
+
 int crocksdb_livefiles_count(
   const crocksdb_livefiles_t* lf) {
   return static_cast<int>(lf->rep.size());
