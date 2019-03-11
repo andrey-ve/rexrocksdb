@@ -9,7 +9,6 @@ links = "rocksdb"
 libc = "0.2.11"
 tempdir = "0.3"
 libz-sys = { version = "1.0", features = ["static"] }
-bzip2-sys = "0.1.7"
 jemalloc-sys = { version = "=0.1.8", features = ["profiling", "stats"] }
 
 [features]
@@ -22,6 +21,9 @@ sse = []
 [build-dependencies]
 cc = "1.0.3"
 cmake = "0.1"
+
+[dependencies.bzip2-sys]
+git = "https://github.com/alexcrichton/bzip2-rs.git"
 
 [dependencies.lz4-sys]
 git = "https://github.com/busyjay/lz4-rs.git"
