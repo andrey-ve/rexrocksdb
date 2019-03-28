@@ -377,6 +377,10 @@ extern "C" {
         block_options: *mut DBBlockBasedTableOptions,
         v: c_int,
     );
+    pub fn crocksdb_block_based_options_set_index_type(
+        block_options: *mut DBBlockBasedTableOptions,
+        v: c_int,
+    );
     pub fn crocksdb_options_increase_parallelism(options: *mut Options, threads: c_int);
     pub fn crocksdb_options_optimize_level_style_compaction(
         options: *mut Options,

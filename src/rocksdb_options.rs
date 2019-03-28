@@ -156,6 +156,15 @@ impl BlockBasedOptions {
             )
         }
     }
+
+    pub fn set_index_type(&mut self, index_type: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_block_based_options_set_index_type(
+                self.inner,
+                index_type,
+            )
+        }
+    }
 }
 
 pub struct RateLimiter {
