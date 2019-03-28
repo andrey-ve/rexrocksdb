@@ -14,11 +14,13 @@
 //
 
 extern crate libc;
+extern crate serde;
 #[cfg(test)]
 extern crate tempdir;
 extern crate bzip2_sys;
 
 use libc::{c_char, c_double, c_int, c_uchar, c_void, size_t, uint32_t, uint64_t, uint8_t};
+use serde::{Deserialize, Serialize};
 use std::ffi::CStr;
 
 pub enum Options {}
@@ -86,7 +88,7 @@ pub enum DBEntryType {
     Other = 4,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[repr(C)]
 pub enum DBCompressionType {
     No = 0,
