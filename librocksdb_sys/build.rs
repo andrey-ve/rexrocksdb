@@ -76,7 +76,6 @@ fn build_rocksdb() -> Build {
         .register_dep("LZ4").define("WITH_LZ4", "ON")
         .register_dep("ZSTD").define("WITH_ZSTD", "ON")
         .register_dep("SNAPPY").define("WITH_SNAPPY", "ON")
-        .register_dep("JEMALLOC").define("WITH_JEMALLOC", "ON")
         .build_target("rocksdb").build();
     let build_dir = format!("{}/build", dst.display());
     if cfg!(target_os = "windows") {
@@ -104,6 +103,5 @@ fn build_rocksdb() -> Build {
     println!("cargo:rustc-link-lib=static=lz4");
     println!("cargo:rustc-link-lib=static=zstd");
     println!("cargo:rustc-link-lib=static=snappy");
-    println!("cargo:rustc-link-lib=static=jemalloc");
     build
 }
