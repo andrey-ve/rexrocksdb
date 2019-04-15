@@ -1,7 +1,10 @@
 [package]
 name = "librocksdb_sys"
+description = "Fork of librocksdb_sys wrapper for Facebook's RocksDB embeddable database."
 version = "0.1.0"
-authors = ["Jay Lee <busyjaylee@gmail.com>"]
+authors = ["Andrey Vesnovaty <andrey.vesnovaty@gmail.com>"]
+homepage = "https://github.com/andrey-ve/rexrocksdb"
+repository = "https://github.com/andrey-ve/rexrocksdb"
 build = "build.rs"
 links = "rocksdb"
 
