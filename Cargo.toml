@@ -30,6 +30,7 @@ crc = "1.2"
 
 [dependencies.librocksdb_sys]
 path = "librocksdb_sys"
+version = "0.1"
 
 [dev-dependencies]
 byteorder = "1.0.0"
