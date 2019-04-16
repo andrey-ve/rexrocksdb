@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 
-extern crate rocksdb;
-use rocksdb::{ColumnFamilyOptions, DBOptions, MergeOperands, Writable, DB};
+extern crate rexrocksdb;
+use rexrocksdb::{ColumnFamilyOptions, DBOptions, MergeOperands, Writable, DB};
 
 // fn snapshot_test() {
 //    let path = "_rust_rocksdb_iteratortest";
