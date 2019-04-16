@@ -74,7 +74,6 @@ fn build_rocksdb() -> Build {
     let dst = cfg.register_dep("Z").define("WITH_ZLIB", "ON")
         .register_dep("BZIP2").define("WITH_BZ2", "ON")
         .register_dep("ZSTD").define("WITH_ZSTD", "ON")
-        .register_dep("SNAPPY").define("WITH_SNAPPY", "ON")
         .build_target("rocksdb").build();
     let build_dir = format!("{}/build", dst.display());
     if cfg!(target_os = "windows") {
@@ -100,6 +99,5 @@ fn build_rocksdb() -> Build {
     println!("cargo:rustc-link-lib=static=z");
     println!("cargo:rustc-link-lib=static=bz2");
     println!("cargo:rustc-link-lib=static=zstd");
-    println!("cargo:rustc-link-lib=static=snappy");
     build
 }
