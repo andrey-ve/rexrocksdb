@@ -18,7 +18,7 @@ extern crate libc;
 #[cfg(test)]
 extern crate tempdir;
 #[macro_use]
-pub extern crate librocksdb_sys;
+pub extern crate librocksdbsys;
 
 pub mod rocksdb;
 pub mod rocksdb_options;
@@ -34,7 +34,7 @@ mod table_filter;
 
 pub use compaction_filter::CompactionFilter;
 pub use event_listener::{CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo};
-pub use librocksdb_sys::{self as crocksdb_ffi, new_bloom_filter, CompactionPriority,
+pub use librocksdbsys::{self as crocksdb_ffi, new_bloom_filter, CompactionPriority,
                          DBCompactionStyle, DBCompressionType, DBEntryType, DBInfoLogLevel,
                          DBRecoveryMode, DBStatisticsHistogramType, DBStatisticsTickerType};
 pub use merge_operator::MergeOperands;

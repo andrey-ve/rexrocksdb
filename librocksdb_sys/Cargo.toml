@@ -1,5 +1,5 @@
 [package]
-name = "librocksdb_sys"
+name = "librocksdbsys"
 description = "Fork of librocksdb_sys wrapper for Facebook's RocksDB embeddable database."
 version = "0.1.1"
 authors = ["Andrey Vesnovaty <andrey.vesnovaty@gmail.com>"]

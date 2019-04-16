@@ -16,8 +16,8 @@ exclude = [
 [features]
 default = []
 valgrind = []
-portable = ["librocksdb_sys/portable"]
-sse = ["librocksdb_sys/sse"]
+portable = ["librocksdbsys/portable"]
+sse = ["librocksdbsys/sse"]
 
 [[test]]
 name = "test"
@@ -28,7 +28,7 @@ libc = "0.2.11"
 tempdir = "0.3.4"
 crc = "1.2"
 
-[dependencies.librocksdb_sys]
+[dependencies.librocksdbsys]
 path = "librocksdb_sys"
 version = "0.1"
 
