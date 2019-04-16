@@ -3,6 +3,7 @@ name = "librocksdb_sys"
 description = "Fork of librocksdb_sys wrapper for Facebook's RocksDB embeddable database."
 version = "0.1.1"
 authors = ["Andrey Vesnovaty <andrey.vesnovaty@gmail.com>"]
+license = "Apache-2.0"
 homepage = "https://github.com/andrey-ve/rexrocksdb"
 repository = "https://github.com/andrey-ve/rexrocksdb"
 build = "build.rs"
