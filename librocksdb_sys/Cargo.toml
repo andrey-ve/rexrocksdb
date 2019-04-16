@@ -26,10 +26,6 @@ sse = []
 cc = "1.0.3"
 cmake = "0.1"
 
-[dependencies.lz4-sys]
-git = "https://github.com/busyjay/lz4-rs.git"
-branch = "adjust-build"
-
 [dependencies.zstd-sys]
 git = "https://github.com/gyscos/zstd-rs.git"
 
